@@ -1,0 +1,29 @@
+{
+  "expo": {
+    "name": "Brain Battle",
+    "slug": "brain-battle",
+    "version": "1.0.0",
+    "scheme": "brain-battle",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "backgroundColor": "#0f0f1a"
+    },
+    "android": {
+      "package": "com.brainbattle.app",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/icon.png",
+        "backgroundColor": "#0f0f1a"
+      }
+    },
+    "plugins": [
+      "expo-router",
+      "expo-font",
+      "react-native-reanimated"
+    ],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}
