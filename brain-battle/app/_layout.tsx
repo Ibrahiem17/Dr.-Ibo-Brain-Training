@@ -5,17 +5,32 @@ import * as SplashScreen from 'expo-splash-screen'
 import { initDB } from '../db/client'
 import { ToastProvider } from '../hooks/useToast'
 import { preloadSounds, setAudioActive } from '../utils/sounds'
+import { useProfileStore } from '../store/profileStore'
+import { useCoinStore } from '../store/coinStore'
+import { useStreakStore } from '../store/streakStore'
+import { getLastActiveStreak } from '../db/queries'
 
 SplashScreen.preventAutoHideAsync()
 
 export default function RootLayout() {
   const [appReady, setAppReady] = useState(false)
+  const loadProfile = useProfileStore((s) => s.loadProfile)
+  const loadCoins = useCoinStore((s) => s.load)
+  const setLastActiveStreak = useStreakStore((s) => s.setLastActiveStreak)
 
   useEffect(() => {
     async function init() {
       try {
         await initDB()
         await preloadSounds()
+        await loadProfile()
+
+        const profile = useProfileStore.getState()
+        if (!profile.isFirstTime && profile.username) {
+          await loadCoins(profile.username)
+          const streak = await getLastActiveStreak()
+          if (streak) setLastActiveStreak(streak)
+        }
       } catch (e) {
         console.error('Init failed', e)
       } finally {
@@ -24,7 +39,7 @@ export default function RootLayout() {
       }
     }
     init()
-  }, [])
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     const sub = AppState.addEventListener('change', (state) => {
@@ -44,6 +59,7 @@ export default function RootLayout() {
           gestureEnabled: false,
         }}
       >
+        <Stack.Screen name="onboarding" options={{ animation: 'fade', gestureEnabled: false }} />
         <Stack.Screen name="handoff" options={{ animation: 'fade' }} />
         <Stack.Screen name="results" options={{ animation: 'fade' }} />
         <Stack.Screen name="settings" options={{ headerShown: false, animation: 'slide_from_bottom' }} />

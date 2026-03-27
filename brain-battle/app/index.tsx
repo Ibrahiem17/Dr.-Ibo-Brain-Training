@@ -19,8 +19,7 @@ import StreakBadge from '../components/ui/StreakBadge'
 import CoinBadge from '../components/ui/CoinBadge'
 import { useStreakStore } from '../store/streakStore'
 import { useCoinStore } from '../store/coinStore'
-import { getLastActiveStreak } from '../db/queries'
-import { getLastKnownPlayer } from '../hooks/useLastKnownPlayer'
+import { useProfileStore } from '../store/profileStore'
 
 const { width: W, height: H } = Dimensions.get('window')
 const PARTICLE_COUNT = 7
@@ -66,17 +65,15 @@ function ModeButton({ label, subtitle, color, onPress }: { label: string; subtit
 export default function HomeScreen() {
   const insets = useSafeAreaInsets()
   const { muted, toggleMute } = useSettingsStore()
-  const { lastActiveStreak, setLastActiveStreak } = useStreakStore()
+  const { lastActiveStreak } = useStreakStore()
   const coinBalance = useCoinStore((s) => s.balance)
-  const loadCoins = useCoinStore((s) => s.load)
+  const { isProfileLoaded, isFirstTime, username } = useProfileStore()
 
   useEffect(() => {
-    getLastActiveStreak()
-      .then((data) => { if (data) setLastActiveStreak(data) })
-      .catch(() => {})
-    const { name } = getLastKnownPlayer()
-    if (name) loadCoins(name)
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+    if (isProfileLoaded && isFirstTime) {
+      router.replace('/onboarding' as Parameters<typeof router.replace>[0])
+    }
+  }, [isProfileLoaded, isFirstTime])
 
   const titleOpacity    = useSharedValue(0)
   const subtitleOpacity = useSharedValue(0)

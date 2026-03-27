@@ -14,6 +14,7 @@ import { GAMES } from '../../constants/games'
 import { colors } from '../../constants/colors'
 import { createOrGetPlayer, saveQuickPlayScore, updateStreak } from '../../db/queries'
 import { useStreakStore } from '../../store/streakStore'
+import { useProfileStore } from '../../store/profileStore'
 import Button from '../../components/ui/Button'
 import StreakBadge from '../../components/ui/StreakBadge'
 
@@ -67,6 +68,7 @@ export default function QuickPlayResults() {
     selectedGameId, player1, player2,
     resetForReplay, reset,
   } = useQuickPlayStore()
+  const { username, color } = useProfileStore()
 
   const savedRef = useRef(false)
 
@@ -79,8 +81,9 @@ export default function QuickPlayResults() {
     const save = async () => {
       try {
         if (isSolo && player1Result) {
-          const p = player1Result.player
-          const dbPlayer = await createOrGetPlayer(p.name, p.color)
+          const name = username || player1Result.player.name
+          const playerColor = color || player1Result.player.color
+          const dbPlayer = await createOrGetPlayer(name, playerColor)
           await saveQuickPlayScore(dbPlayer.id, game.id, player1Result.score, player1Result.timeMs, player1Result.accuracy)
         } else if (!isSolo && player1Result && player2Result) {
           const [dbP1, dbP2] = await Promise.all([
@@ -94,7 +97,7 @@ export default function QuickPlayResults() {
         }
         // Update streaks
         if (isSolo && player1Result) {
-          const name = player1Result.player.name
+          const name = username || player1Result.player.name
           if (name) updateStreak(name).then((r) => {
             useStreakStore.getState().setLastUpdateResult(r)
             useStreakStore.getState().setLastActiveStreak({ playerName: name, currentStreak: r.currentStreak, longestStreak: r.longestStreak })

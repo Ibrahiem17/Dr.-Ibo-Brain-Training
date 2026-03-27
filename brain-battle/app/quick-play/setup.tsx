@@ -2,7 +2,6 @@ import { useState } from 'react'
 import {
   View,
   Text,
-  TextInput,
   TouchableOpacity,
   StyleSheet,
   ScrollView,
@@ -18,16 +17,16 @@ import Animated, {
 import { colors } from '../../constants/colors'
 import { useSettingsStore } from '../../store/settingsStore'
 import { useQuickPlayStore } from '../../store/quickPlayStore'
+import { useProfileStore } from '../../store/profileStore'
 import Button from '../../components/ui/Button'
 
 export default function QuickPlaySetup() {
   const [isSolo, setIsSolo] = useState(true)
-  const [name1, setName1] = useState('')
-  const [error, setError] = useState<string | null>(null)
 
   const setPlayers = useQuickPlayStore((s) => s.setPlayers)
   const selectGame = useQuickPlayStore((s) => s.selectGame)
   const { player1Color, player2Color } = useSettingsStore()
+  const { username, color, isProfileLoaded } = useProfileStore()
 
   const sliderX = useSharedValue(0)
   const [pillWidth, setPillWidth] = useState(0)
@@ -47,7 +46,6 @@ export default function QuickPlaySetup() {
 
   const handleToggle = (solo: boolean) => {
     setIsSolo(solo)
-    setError(null)
     if (pillWidth > 0) {
       sliderX.value = withSpring(solo ? 0 : pillWidth, { damping: 20, stiffness: 250 })
     }
@@ -66,6 +64,8 @@ export default function QuickPlaySetup() {
     if (!isSolo) sliderX.value = w
   }
 
+  if (!isProfileLoaded) return null
+
   const handleNext = () => {
     if (!isSolo) {
       const p1 = { id: null, name: 'Player 1', color: player1Color }
@@ -76,12 +76,7 @@ export default function QuickPlaySetup() {
       return
     }
 
-    const n1 = name1.trim()
-    if (!n1) { setError('Enter your name.'); return }
-    if (n1.length > 12) { setError('Name max 12 characters.'); return }
-
-    setError(null)
-    const p1 = { id: null, name: n1, color: player1Color }
+    const p1 = { id: null, name: username, color }
     setPlayers(p1, null, true)
     selectGame('')
     router.push('/quick-play/select')
@@ -91,7 +86,6 @@ export default function QuickPlaySetup() {
     <ScrollView
       style={{ flex: 1, backgroundColor: colors.bg }}
       contentContainerStyle={styles.container}
-      keyboardShouldPersistTaps="handled"
     >
       <TouchableOpacity onPress={() => router.back()} style={styles.back}>
         <Text style={styles.backText}>← Back</Text>
@@ -111,22 +105,14 @@ export default function QuickPlaySetup() {
         </TouchableOpacity>
       </View>
 
-      {/* Solo: name input */}
+      {/* Solo: profile card */}
       {isSolo && (
-        <View style={[styles.card, { borderColor: player1Color }]}>
-          <View style={styles.cardHeader}>
-            <Text style={styles.playerLabel}>Your Name</Text>
-            <View style={[styles.colorPill, { backgroundColor: player1Color }]} />
+        <View style={[styles.profileCard, { borderColor: color }]}>
+          <View style={[styles.colorDot, { backgroundColor: color }]} />
+          <View>
+            <Text style={[styles.profileName, { color }]}>{username}</Text>
+            <Text style={styles.profileLabel}>YOUR PROFILE</Text>
           </View>
-          <TextInput
-            value={name1}
-            onChangeText={(t) => { setName1(t.slice(0, 12)); setError(null) }}
-            placeholder="Enter name…"
-            placeholderTextColor={colors.muted}
-            style={[styles.input, { borderColor: player1Color, color: player1Color }]}
-            maxLength={12}
-            autoCorrect={false}
-          />
         </View>
       )}
 
@@ -141,12 +127,9 @@ export default function QuickPlaySetup() {
         </View>
       </Animated.View>
 
-      {error && <Text style={styles.errorText}>{error}</Text>}
-
       <Button
         label="Choose Game"
         onPress={handleNext}
-        disabled={isSolo && !name1.trim()}
         color={colors.amber}
         size="lg"
         fullWidth
@@ -210,34 +193,31 @@ const styles = StyleSheet.create({
   toggleTextActive: {
     color: colors.amber,
   },
-  card: {
-    backgroundColor: colors.surface,
-    borderWidth: 2,
-    borderRadius: 14,
-    padding: 16,
-    gap: 12,
-  },
-  cardHeader: {
+  profileCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    gap: 14,
+    padding: 16,
+    backgroundColor: colors.surface,
+    borderRadius: 14,
+    borderWidth: 2,
   },
-  playerLabel: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: colors.muted,
-    letterSpacing: 1.5,
-    textTransform: 'uppercase',
+  colorDot: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
   },
-  colorPill: { width: 22, height: 22, borderRadius: 11 },
-  input: {
-    borderWidth: 1.5,
-    borderRadius: 8,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
+  profileName: {
     fontSize: 18,
+    fontWeight: '900',
+    letterSpacing: -0.5,
+  },
+  profileLabel: {
+    fontSize: 10,
+    color: colors.muted,
     fontWeight: '700',
-    backgroundColor: colors.bg,
+    letterSpacing: 2,
+    marginTop: 2,
   },
   infoRow: {
     flexDirection: 'row',
@@ -254,11 +234,4 @@ const styles = StyleSheet.create({
   infoDot: { fontSize: 14 },
   infoName: { fontSize: 16, fontWeight: '700' },
   infoVs: { fontSize: 13, color: colors.muted, fontWeight: '600' },
-  errorText: {
-    color: colors.accent2,
-    fontSize: 13,
-    textAlign: 'center',
-    fontWeight: '600',
-    marginTop: -8,
-  },
 })

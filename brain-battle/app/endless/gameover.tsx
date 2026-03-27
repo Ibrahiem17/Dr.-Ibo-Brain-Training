@@ -13,14 +13,19 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 import { colors } from '../../constants/colors'
 import { useEndlessStore } from '../../store/endlessStore'
 import { useCoinStore } from '../../store/coinStore'
+import { useProfileStore } from '../../store/profileStore'
 import { saveEndlessSession, getLeaderboard, type LeaderboardEntry } from '../../db/queries'
 import { GAMES } from '../../constants/games'
 import Button from '../../components/ui/Button'
 import { playSound } from '../../utils/sounds'
 
 export default function EndlessGameOver() {
-  const { gameId, playerName, playerColor, endlessRound, reset } = useEndlessStore()
+  const { gameId, endlessRound, reset } = useEndlessStore()
+  const { username, color: profileColor } = useProfileStore()
   const coinBalance = useCoinStore((s) => s.balance)
+  // Use profile username/color; fall back to store values for safety
+  const playerName = username
+  const playerColor = profileColor
 
   // endlessRound is already incremented past the losing round, so
   // rounds survived = endlessRound - 1

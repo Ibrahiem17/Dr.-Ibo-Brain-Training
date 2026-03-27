@@ -17,6 +17,7 @@ import { colors } from '../../constants/colors'
 import { createOrGetPlayer, saveSoloSession, saveSoloGameScores, updateStreak } from '../../db/queries'
 import { useStreakStore } from '../../store/streakStore'
 import { useCoinStore } from '../../store/coinStore'
+import { useProfileStore } from '../../store/profileStore'
 import Button from '../../components/ui/Button'
 import StreakBadge from '../../components/ui/StreakBadge'
 
@@ -106,6 +107,7 @@ export default function SoloResults() {
   const [isNewBest, setIsNewBest] = useState(false)
   const { lastUpdateResult, setLastUpdateResult, setLastActiveStreak, clearUpdateResult } = useStreakStore()
   const earnCoins = useCoinStore((s) => s.earn)
+  const { username, color } = useProfileStore()
 
   const brainAge = finalBrainAge ?? 65
   const totalScore = results.reduce((s, r) => s + r.score, 0)
@@ -116,21 +118,21 @@ export default function SoloResults() {
     savedRef.current = true
 
     const save = async () => {
-      if (!player) return
+      const name = username || player?.name
+      const playerColor = color || player?.color || '#00e5ff'
+      if (!name) return
       try {
-        const dbPlayer = await createOrGetPlayer(player.name, player.color)
+        const dbPlayer = await createOrGetPlayer(name, playerColor)
         const sessionId = await saveSoloSession(dbPlayer.id, brainAge, totalScore)
         await saveSoloGameScores(sessionId, dbPlayer.id, results)
         // Award coins for completing a solo session
-        earnCoins(player.name, 5)
-        if (player?.name) {
-          updateStreak(player.name)
-            .then((result) => {
-              setLastUpdateResult(result)
-              setLastActiveStreak({ playerName: player.name, currentStreak: result.currentStreak, longestStreak: result.longestStreak })
-            })
-            .catch(() => {})
-        }
+        earnCoins(name, 5)
+        updateStreak(name)
+          .then((result) => {
+            setLastUpdateResult(result)
+            setLastActiveStreak({ playerName: name, currentStreak: result.currentStreak, longestStreak: result.longestStreak })
+          })
+          .catch(() => {})
       } catch {
         // Never block results
       }
@@ -244,9 +246,9 @@ export default function SoloResults() {
 
           {/* Player name */}
           <Animated.View style={[styles.playerRow, playerStyle]}>
-            <View style={[styles.playerDot, { backgroundColor: player?.color ?? colors.accent3 }]} />
-            <Text style={[styles.playerName, { color: player?.color ?? colors.accent3 }]}>
-              {player?.name ?? 'Player'}
+            <View style={[styles.playerDot, { backgroundColor: color || player?.color || colors.accent3 }]} />
+            <Text style={[styles.playerName, { color: color || player?.color || colors.accent3 }]}>
+              {username || player?.name || 'Player'}
             </Text>
           </Animated.View>
 

@@ -417,7 +417,27 @@ export async function resetAllData(): Promise<void> {
   await db.delete(players)
 }
 
-// ─── Player stats ─────────────────────────────────────────────────────────────
+// ─── Player helpers ───────────────────────────────────────────────────────────
+
+// Alias for createOrGetPlayer — get or create a player record by username.
+export const getOrCreatePlayer = createOrGetPlayer
+
+// Count total individual games played across all modes for a given player name.
+export async function getGamesPlayedCount(playerName: string): Promise<number> {
+  const playerRows = await db
+    .select({ id: players.id })
+    .from(players)
+    .where(eq(players.name, playerName))
+    .limit(1)
+  if (!playerRows.length) return 0
+  const playerId = playerRows[0].id
+  const [gRows, sgRows, qRows] = await Promise.all([
+    db.select({ id: game_scores.id }).from(game_scores).where(eq(game_scores.player_id, playerId)),
+    db.select({ id: solo_game_scores.id }).from(solo_game_scores).where(eq(solo_game_scores.player_id, playerId)),
+    db.select({ id: quick_play_scores.id }).from(quick_play_scores).where(eq(quick_play_scores.player_id, playerId)),
+  ])
+  return gRows.length + sgRows.length + qRows.length
+}
 
 // ─── Coin helpers ─────────────────────────────────────────────────────────────
 

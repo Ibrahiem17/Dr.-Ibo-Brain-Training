@@ -1,11 +1,12 @@
 import { useState } from 'react'
-import { View, Text, TextInput, Pressable, StyleSheet, ScrollView } from 'react-native'
+import { View, Text, Pressable, StyleSheet, ScrollView } from 'react-native'
 import { router } from 'expo-router'
 import { SafeAreaView } from 'react-native-safe-area-context'
-import { colors, playerColors } from '../../constants/colors'
+import { colors } from '../../constants/colors'
 import { GAMES } from '../../constants/games'
 import { useEndlessStore } from '../../store/endlessStore'
-import { getLastKnownPlayer, setLastKnownPlayer } from '../../hooks/useLastKnownPlayer'
+import { useProfileStore } from '../../store/profileStore'
+import { useCoinStore } from '../../store/coinStore'
 import Button from '../../components/ui/Button'
 
 const GAME_COLORS: Record<string, string> = {
@@ -19,26 +20,24 @@ const GAME_COLORS: Record<string, string> = {
 }
 
 export default function EndlessSetup() {
-  const last = getLastKnownPlayer()
-  const [playerName, setPlayerName] = useState(last.name)
-  const [playerColor, setPlayerColor] = useState(last.color)
+  const { username, color, isProfileLoaded } = useProfileStore()
+  const coinBalance = useCoinStore((s) => s.balance)
   const [selectedGameId, setSelectedGameId] = useState<string | null>(null)
-
   const setup = useEndlessStore((s) => s.setup)
 
-  const canStart = playerName.trim().length > 0 && selectedGameId !== null
+  if (!isProfileLoaded) return null
+
+  const canStart = selectedGameId !== null
 
   const handleStart = () => {
     if (!canStart || !selectedGameId) return
-    const name = playerName.trim()
-    setLastKnownPlayer(name, playerColor)
-    setup(selectedGameId, name, playerColor)
+    setup(selectedGameId, username, color)
     router.push('/endless/countdown' as Parameters<typeof router.push>[0])
   }
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
+      <ScrollView contentContainerStyle={styles.scroll}>
         {/* Header */}
         <View style={styles.header}>
           <Pressable onPress={() => router.back()} hitSlop={10} style={styles.backBtn}>
@@ -48,35 +47,15 @@ export default function EndlessSetup() {
           <Text style={styles.subtitle}>Survive as many rounds as you can</Text>
         </View>
 
-        {/* Player name */}
-        <View style={styles.section}>
-          <Text style={styles.sectionLabel}>YOUR NAME</Text>
-          <TextInput
-            style={styles.input}
-            value={playerName}
-            onChangeText={setPlayerName}
-            placeholder="Enter your name"
-            placeholderTextColor={colors.muted}
-            maxLength={20}
-            autoCorrect={false}
-          />
-        </View>
-
-        {/* Color picker */}
-        <View style={styles.section}>
-          <Text style={styles.sectionLabel}>YOUR COLOUR</Text>
-          <View style={styles.colorRow}>
-            {playerColors.map((c) => (
-              <Pressable
-                key={c}
-                onPress={() => setPlayerColor(c)}
-                style={[
-                  styles.colorDot,
-                  { backgroundColor: c },
-                  playerColor === c && styles.colorDotSelected,
-                ]}
-              />
-            ))}
+        {/* Profile card */}
+        <View style={[styles.profileCard, { borderColor: color }]}>
+          <View style={[styles.colorDot, { backgroundColor: color }]} />
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.profileName, { color }]}>{username}</Text>
+            <Text style={styles.profileLabel}>YOUR PROFILE</Text>
+          </View>
+          <View style={styles.coinBadge}>
+            <Text style={styles.coinText}>🪙 {coinBalance}</Text>
           </View>
         </View>
 
@@ -131,22 +110,43 @@ const styles = StyleSheet.create({
   backText: { color: colors.muted, fontSize: 14, fontWeight: '600' },
   title: { fontSize: 28, fontWeight: '900', color: colors.gold, letterSpacing: 2, textAlign: 'center' },
   subtitle: { fontSize: 13, color: colors.muted, textAlign: 'center' },
+  profileCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    padding: 16,
+    backgroundColor: colors.surface,
+    borderRadius: 14,
+    borderWidth: 2,
+  },
+  colorDot: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+  },
+  profileName: {
+    fontSize: 18,
+    fontWeight: '900',
+    letterSpacing: -0.5,
+  },
+  profileLabel: {
+    fontSize: 10,
+    color: colors.muted,
+    fontWeight: '700',
+    letterSpacing: 2,
+    marginTop: 2,
+  },
+  coinBadge: {
+    backgroundColor: colors.gold + '22',
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderWidth: 1,
+    borderColor: colors.gold,
+  },
+  coinText: { fontSize: 14, fontWeight: '800', color: colors.gold },
   section: { gap: 12 },
   sectionLabel: { fontSize: 11, fontWeight: '700', color: colors.muted, letterSpacing: 2 },
-  input: {
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 10,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    color: colors.text,
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  colorRow: { flexDirection: 'row', gap: 12 },
-  colorDot: { width: 36, height: 36, borderRadius: 18 },
-  colorDotSelected: { borderWidth: 3, borderColor: colors.white },
   gameGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   gameCard: {
     width: '47%',
