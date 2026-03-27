@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { View, Text, Pressable, Platform } from 'react-native'
+import { View, Text, Pressable, Platform, AppState } from 'react-native'
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -10,11 +10,14 @@ import Animated, {
 } from 'react-native-reanimated'
 import * as Haptics from 'expo-haptics'
 import { colors } from '../../../constants/colors'
+import { playSound } from '../../../utils/sounds'
 import ProgressBar from '../../ui/ProgressBar'
 import { useGridMemory, GridCell, GridMemoryFeedback } from './useGridMemory'
 
 interface Props {
   onGameComplete: (score: number, timeMs: number, accuracy: number) => void
+  endlessMode?: boolean
+  endlessRound?: number
 }
 
 const CELL_SIZE = 66
@@ -113,9 +116,14 @@ function AnswerButton({ number, onPress, disabled, pulseNow }: AnswerButtonProps
 
 // ─── GridMemory ───────────────────────────────────────────────────────────────
 
-export default function GridMemory({ onGameComplete }: Props) {
+export default function GridMemory({ onGameComplete, endlessMode, endlessRound }: Props) {
   const { grid, phase, round, totalRounds, score, feedback, isComplete, totalTimeMs, accuracy, submitAnswer } =
-    useGridMemory()
+    useGridMemory({ endlessMode, endlessRound })
+
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', () => {})
+    return () => sub.remove()
+  }, [])
 
   const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null)
 
@@ -130,8 +138,10 @@ export default function GridMemory({ onGameComplete }: Props) {
   useEffect(() => {
     if (feedback === 'correct') {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
+      playSound('correct', 0.8)
     } else if (feedback === 'wrong') {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error)
+      playSound('wrong', 0.8)
       answerRowShakeX.value = withSequence(
         withTiming(-10, { duration: 50 }),
         withTiming(10, { duration: 50 }),

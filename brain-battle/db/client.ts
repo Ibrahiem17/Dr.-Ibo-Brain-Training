@@ -48,4 +48,79 @@ export async function initDB(): Promise<void> {
       recorded_at TEXT NOT NULL
     );
   `)
+
+  sqliteDb.execSync(`
+    CREATE TABLE IF NOT EXISTS quick_play_scores (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      player_id INTEGER NOT NULL REFERENCES players(id),
+      game_id TEXT NOT NULL,
+      score INTEGER NOT NULL,
+      time_ms INTEGER NOT NULL,
+      accuracy REAL NOT NULL,
+      played_at TEXT NOT NULL
+    );
+  `)
+
+  sqliteDb.execSync(`
+    CREATE TABLE IF NOT EXISTS solo_sessions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      player_id INTEGER NOT NULL REFERENCES players(id),
+      brain_age INTEGER NOT NULL,
+      total_score INTEGER NOT NULL,
+      recorded_at TEXT NOT NULL
+    );
+  `)
+
+  sqliteDb.execSync(`
+    CREATE TABLE IF NOT EXISTS solo_game_scores (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      solo_session_id INTEGER NOT NULL REFERENCES solo_sessions(id),
+      player_id INTEGER NOT NULL REFERENCES players(id),
+      game_id TEXT NOT NULL,
+      score INTEGER NOT NULL,
+      time_ms INTEGER NOT NULL,
+      accuracy REAL NOT NULL,
+      played_at TEXT NOT NULL
+    );
+  `)
+
+  sqliteDb.execSync(`
+    CREATE TABLE IF NOT EXISTS streaks (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      player_name TEXT NOT NULL,
+      current_streak INTEGER NOT NULL DEFAULT 0,
+      longest_streak INTEGER NOT NULL DEFAULT 0,
+      last_played_date TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+  `)
+
+  sqliteDb.execSync(`
+    CREATE TABLE IF NOT EXISTS coins (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      player_name TEXT NOT NULL,
+      balance INTEGER NOT NULL DEFAULT 0,
+      updated_at TEXT NOT NULL
+    );
+  `)
+
+  sqliteDb.execSync(`
+    CREATE TABLE IF NOT EXISTS endless_high_scores (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      player_name TEXT NOT NULL,
+      game_id TEXT NOT NULL,
+      rounds_survived INTEGER NOT NULL,
+      played_at TEXT NOT NULL
+    );
+  `)
+
+  sqliteDb.execSync(`
+    CREATE TABLE IF NOT EXISTS endless_sessions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      player_name TEXT NOT NULL,
+      game_id TEXT NOT NULL,
+      rounds_survived INTEGER NOT NULL,
+      played_at TEXT NOT NULL
+    );
+  `)
 }

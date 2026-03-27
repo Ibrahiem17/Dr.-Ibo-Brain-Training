@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { View, Text, TextInput, Keyboard, Platform } from 'react-native'
+import { View, Text, TextInput, Keyboard, Platform, AppState } from 'react-native'
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -10,6 +10,7 @@ import Animated, {
 } from 'react-native-reanimated'
 import * as Haptics from 'expo-haptics'
 import { colors } from '../../../constants/colors'
+import { playSound } from '../../../utils/sounds'
 import ProgressBar from '../../ui/ProgressBar'
 import TimerBar from '../../ui/TimerBar'
 import Button from '../../ui/Button'
@@ -17,15 +18,27 @@ import { useMentalMath } from './useMentalMath'
 
 interface Props {
   onGameComplete: (score: number, timeMs: number, accuracy: number) => void
+  endlessMode?: boolean
+  endlessRound?: number
 }
 
-export default function MentalMath({ onGameComplete }: Props) {
+export default function MentalMath({ onGameComplete, endlessMode, endlessRound }: Props) {
   const [input, setInput] = useState('')
+  const [paused, setPaused] = useState(false)
+
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (state) => {
+      setPaused(state !== 'active')
+    })
+    return () => sub.remove()
+  }, [])
+
   const {
     question,
     correctAnswer,
     round,
     totalRounds,
+    roundDuration,
     score,
     feedback,
     isComplete,
@@ -33,7 +46,7 @@ export default function MentalMath({ onGameComplete }: Props) {
     accuracy,
     submitAnswer,
     timerExpired,
-  } = useMentalMath()
+  } = useMentalMath({ endlessMode, endlessRound })
 
   // Animations
   const questionScale = useSharedValue(1)
@@ -42,6 +55,11 @@ export default function MentalMath({ onGameComplete }: Props) {
 
   // Track previous question to detect changes
   const prevRoundRef = useRef(0)
+
+  // Clear input on new round (covers timer-expiry path)
+  useEffect(() => {
+    setInput('')
+  }, [round])
 
   // Pop animation on new question
   useEffect(() => {
@@ -56,11 +74,13 @@ export default function MentalMath({ onGameComplete }: Props) {
   useEffect(() => {
     if (feedback === 'correct') {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
+      playSound('correct', 0.8)
       borderAnim.value = withTiming(1, { duration: 100 }, () => {
         borderAnim.value = withTiming(0, { duration: 500 })
       })
     } else if (feedback === 'wrong') {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error)
+      playSound('wrong', 0.8)
       shakeX.value = withSequence(
         withTiming(-10, { duration: 50 }),
         withTiming(10, { duration: 50 }),
@@ -114,9 +134,9 @@ export default function MentalMath({ onGameComplete }: Props) {
         {/* Timer — remount each round to reset */}
         <TimerBar
           key={round}
-          duration={6}
+          duration={roundDuration}
           onExpire={timerExpired}
-          running={feedback === null}
+          running={!paused && feedback === null}
           color={colors.accent}
         />
 

@@ -1,26 +1,35 @@
 {
   "expo": {
-    "name": "Brain Battle",
-    "slug": "brain-battle",
+    "name": "Dr Ibo Brain Training",
+    "slug": "dr-ibo-brain-training",
     "version": "1.0.0",
-    "scheme": "brain-battle",
+    "scheme": "dribobraintraining",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
+    "icon": "./assets/images/icon.png.png",
     "splash": {
-      "image": "./assets/splash-icon.png",
-      "backgroundColor": "#0f0f1a"
+      "image": "./assets/images/splash.png.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#1a0a2e"
     },
     "android": {
-      "package": "com.brainbattle.app",
+      "package": "com.dribobraintraining.app",
+      "versionCode": 1,
       "adaptiveIcon": {
-        "foregroundImage": "./assets/icon.png",
-        "backgroundColor": "#0f0f1a"
+        "foregroundImage": "./assets/images/icon.png.png",
+        "backgroundColor": "#1a0a2e"
       }
     },
     "plugins": [
       "expo-router",
       "expo-font",
-      "react-native-reanimated"
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#1a0a2e",
+          "image": "./assets/images/splash.png.png",
+          "resizeMode": "contain"
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true

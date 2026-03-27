@@ -5,8 +5,8 @@ import { normaliseScore } from '../../../utils/scoring'
 type Operator = '+' | '-' | 'x'
 export type MentalMathFeedback = 'correct' | 'wrong' | null
 
-const TOTAL_ROUNDS = 8
-const ROUND_DURATION = 6 // seconds
+const BASE_TOTAL_ROUNDS = 8
+const BASE_ROUND_DURATION = 6 // seconds
 
 function makeQuestion(): { text: string; answer: number } {
   const op = randFrom<Operator>(['+', '-', 'x'])
@@ -35,7 +35,21 @@ function makeQuestion(): { text: string; answer: number } {
   return { text, answer }
 }
 
-export function useMentalMath() {
+interface Params {
+  endlessMode?: boolean
+  endlessRound?: number
+}
+
+export function useMentalMath(params?: Params) {
+  const endlessMode = params?.endlessMode ?? false
+  const endlessRound = params?.endlessRound ?? 1
+
+  const TOTAL_ROUNDS = endlessMode ? 1 : BASE_TOTAL_ROUNDS
+  // In endless mode, reduce time allowed as rounds increase (min 3s)
+  const ROUND_DURATION = endlessMode
+    ? Math.max(3, BASE_ROUND_DURATION - Math.floor(endlessRound / 5))
+    : BASE_ROUND_DURATION
+
   const [question, setQuestion] = useState('')
   const [correctAnswer, setCorrectAnswer] = useState(0)
   const [round, setRound] = useState(1)
@@ -55,6 +69,13 @@ export function useMentalMath() {
   const roundStartRef = useRef(0)
   const gameStartRef = useRef(0)
   const correctAnswerRef = useRef(0)
+  const feedbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const roundDurationRef = useRef(ROUND_DURATION)
+  const totalRoundsRef = useRef(TOTAL_ROUNDS)
+
+  // Keep refs in sync with derived values
+  roundDurationRef.current = ROUND_DURATION
+  totalRoundsRef.current = TOTAL_ROUNDS
 
   const startNewQuestion = useCallback(() => {
     const { text, answer } = makeQuestion()
@@ -68,11 +89,16 @@ export function useMentalMath() {
   useEffect(() => {
     gameStartRef.current = performance.now()
     startNewQuestion()
+    return () => {
+      if (feedbackTimerRef.current) clearTimeout(feedbackTimerRef.current)
+    }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleRoundEnd = useCallback(
     (correct: boolean, tLeft: number) => {
-      const points = correct ? Math.round((tLeft / ROUND_DURATION) * 80) + 20 : 0
+      const rd = roundDurationRef.current
+      const tr = totalRoundsRef.current
+      const points = correct ? Math.round((tLeft / rd) * 80) + 20 : 0
       rawPointsRef.current += points
       correctCountRef.current += correct ? 1 : 0
       setRawPoints(rawPointsRef.current)
@@ -84,11 +110,12 @@ export function useMentalMath() {
 
       const capturedRound = roundRef.current
 
-      setTimeout(() => {
+      if (feedbackTimerRef.current) clearTimeout(feedbackTimerRef.current)
+      feedbackTimerRef.current = setTimeout(() => {
         processingRef.current = false
 
-        if (capturedRound >= TOTAL_ROUNDS) {
-          const score = normaliseScore(rawPointsRef.current, TOTAL_ROUNDS * 100)
+        if (capturedRound >= tr) {
+          const score = normaliseScore(rawPointsRef.current, tr * 100)
           const timeMs = performance.now() - gameStartRef.current
           setFinalScore(score)
           setTotalTimeMs(timeMs)
@@ -112,7 +139,7 @@ export function useMentalMath() {
       processingRef.current = true
 
       const elapsed = (performance.now() - roundStartRef.current) / 1000
-      const tLeft = Math.max(0, ROUND_DURATION - elapsed)
+      const tLeft = Math.max(0, roundDurationRef.current - elapsed)
       const num = parseInt(value, 10)
       const correct = !isNaN(num) && num === correctAnswerRef.current
       handleRoundEnd(correct, tLeft)
@@ -145,6 +172,7 @@ export function useMentalMath() {
     correctAnswer,
     round,
     totalRounds: TOTAL_ROUNDS,
+    roundDuration: ROUND_DURATION,
     score: displayScore,
     feedback,
     isComplete,

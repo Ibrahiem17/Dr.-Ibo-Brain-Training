@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { View, Text, StyleSheet } from 'react-native'
 import { MotiView } from 'moti'
 import { colors } from '../../constants/colors'
+import { playSound } from '../../utils/sounds'
 
 interface CountdownOverlayProps {
   gameName: string
@@ -25,10 +26,11 @@ export default function CountdownOverlay({
   onCompleteRef.current = onComplete
 
   useEffect(() => {
+    playSound('countdownBeep', 0.7)
     const timers = [
-      setTimeout(() => setStep(1), 1000),
-      setTimeout(() => setStep(2), 2000),
-      setTimeout(() => setStep(3), 3000),
+      setTimeout(() => { setStep(1); playSound('countdownBeep', 0.7) }, 1000),
+      setTimeout(() => { setStep(2); playSound('countdownBeep', 0.7) }, 2000),
+      setTimeout(() => { setStep(3); playSound('countdownGo', 0.9) }, 3000),
       setTimeout(() => onCompleteRef.current(), 3700),
     ]
     return () => timers.forEach(clearTimeout)

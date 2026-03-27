@@ -1,6 +1,7 @@
 import { Pressable, Text } from 'react-native'
 import Animated, { useSharedValue, useAnimatedStyle, withSpring } from 'react-native-reanimated'
 import { colors } from '../../constants/colors'
+import { playSound } from '../../utils/sounds'
 
 interface ButtonProps {
   label: string
@@ -39,6 +40,7 @@ export default function Button({
       <Pressable
         onPressIn={() => {
           scale.value = withSpring(0.95, { damping: 15, stiffness: 300 })
+          playSound('buttonTap', 0.35)
         }}
         onPressOut={() => {
           scale.value = withSpring(1.0, { damping: 15, stiffness: 300 })

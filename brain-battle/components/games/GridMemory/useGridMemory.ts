@@ -12,8 +12,13 @@ export type GridMemoryPhase = 'showing' | 'recall'
 
 const BALL_COLORS = ['#ff2d6b', '#00e5ff', '#aaff00', '#ff9f00', '#c084fc']
 const LIT_COUNTS = [2, 3, 4, 5, 6, 7]
-const TOTAL_ROUNDS = 6
+const BASE_TOTAL_ROUNDS = 6
 const SHOW_DURATION = 1800
+
+function getEndlessLitCount(endlessRound: number): number {
+  // Starts at 2, increases every 2 rounds, caps at 8
+  return Math.min(2 + Math.floor(endlessRound / 2), 8)
+}
 
 function buildGrid(litCount: number): GridCell[] {
   const cells: GridCell[] = Array.from({ length: 16 }, (_, i) => ({
@@ -37,7 +42,20 @@ function buildGrid(litCount: number): GridCell[] {
   return cells
 }
 
-export function useGridMemory() {
+interface Params {
+  endlessMode?: boolean
+  endlessRound?: number
+}
+
+export function useGridMemory(params?: Params) {
+  const endlessMode = params?.endlessMode ?? false
+  const endlessRound = params?.endlessRound ?? 1
+
+  const TOTAL_ROUNDS = endlessMode ? 1 : BASE_TOTAL_ROUNDS
+
+  const getLitCount = (roundNum: number): number =>
+    endlessMode ? getEndlessLitCount(endlessRound) : (LIT_COUNTS[roundNum - 1] ?? 7)
+
   const [grid, setGrid] = useState<GridCell[]>([])
   const [phase, setPhase] = useState<GridMemoryPhase>('showing')
   const [round, setRound] = useState(1)
@@ -54,6 +72,11 @@ export function useGridMemory() {
   const processingRef = useRef(false)
   const gameStartRef = useRef(0)
   const showTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const feedbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const litCountRef = useRef(getLitCount(1))
+  const totalRoundsRef = useRef(TOTAL_ROUNDS)
+
+  totalRoundsRef.current = TOTAL_ROUNDS
 
   // Keep roundRef in sync
   useEffect(() => {
@@ -61,7 +84,8 @@ export function useGridMemory() {
   }, [round])
 
   const startRound = useCallback((roundNum: number) => {
-    const litCount = LIT_COUNTS[roundNum - 1]
+    const litCount = getLitCount(roundNum)
+    litCountRef.current = litCount
     const cells = buildGrid(litCount)
     setGrid(cells)
     setPhase('showing')
@@ -71,7 +95,7 @@ export function useGridMemory() {
       setGrid((prev) => prev.map((c) => ({ ...c, isLit: false, isNeutral: true })))
       setPhase('recall')
     }, SHOW_DURATION)
-  }, [])
+  }, [endlessMode, endlessRound]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Init
   useEffect(() => {
@@ -79,6 +103,7 @@ export function useGridMemory() {
     startRound(1)
     return () => {
       if (showTimerRef.current) clearTimeout(showTimerRef.current)
+      if (feedbackTimerRef.current) clearTimeout(feedbackTimerRef.current)
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -88,9 +113,10 @@ export function useGridMemory() {
       processingRef.current = true
 
       const currentRound = roundRef.current
-      const litCount = LIT_COUNTS[currentRound - 1]
+      const litCount = litCountRef.current
+      const tr = totalRoundsRef.current
       const correct = answer === litCount
-      const points = correct ? Math.round(100 / TOTAL_ROUNDS) : 0
+      const points = correct ? Math.round(100 / tr) : 0
 
       rawPointsRef.current += points
       correctCountRef.current += correct ? 1 : 0
@@ -98,20 +124,17 @@ export function useGridMemory() {
       setCorrectCount(correctCountRef.current)
       setFeedback(correct ? 'correct' : 'wrong')
 
-      setTimeout(() => {
+      if (feedbackTimerRef.current) clearTimeout(feedbackTimerRef.current)
+      feedbackTimerRef.current = setTimeout(() => {
         processingRef.current = false
         setFeedback(null)
 
-        if (currentRound >= TOTAL_ROUNDS) {
+        if (currentRound >= tr) {
           const score = Math.min(100, rawPointsRef.current)
           const timeMs = performance.now() - gameStartRef.current
-          const acc = correctCountRef.current / TOTAL_ROUNDS
           setFinalScore(score)
           setTotalTimeMs(timeMs)
           setIsComplete(true)
-          // also expose accuracy via state
-          setCorrectCount(correctCountRef.current) // already set
-          void acc
         } else {
           const nextRound = currentRound + 1
           roundRef.current = nextRound
@@ -128,7 +151,7 @@ export function useGridMemory() {
     phase,
     round,
     totalRounds: TOTAL_ROUNDS,
-    litCount: LIT_COUNTS[round - 1],
+    litCount: getLitCount(round),
     score: isComplete ? finalScore : Math.min(100, rawPointsRef.current),
     feedback,
     isComplete,

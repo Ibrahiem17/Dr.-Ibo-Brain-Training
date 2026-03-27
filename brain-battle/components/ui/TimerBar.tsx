@@ -35,6 +35,8 @@ export default function TimerBar({ duration, onExpire, color = colors.accent, ru
     }
   }, [running])
 
+  useEffect(() => () => cancelAnimation(progress), [])
+
   useAnimatedReaction(
     () => progress.value,
     (val) => {

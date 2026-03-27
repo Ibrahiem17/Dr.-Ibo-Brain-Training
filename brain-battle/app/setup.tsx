@@ -1,160 +1,142 @@
-import { useState, useMemo } from 'react'
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ScrollView } from 'react-native'
+import { useEffect, useState } from 'react'
+import { View, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native'
 import { router } from 'expo-router'
-import { colors, playerColors } from '../constants/colors'
+import Animated, { useSharedValue, useAnimatedStyle, withSpring } from 'react-native-reanimated'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
+import { colors } from '../constants/colors'
+import { useSettingsStore } from '../store/settingsStore'
 import { createOrGetPlayer, createSession } from '../db/queries'
 import { useSessionStore } from '../store/sessionStore'
 import Button from '../components/ui/Button'
 
-function pickTwoColors(): [string, string] {
-  const shuffled = [...playerColors].sort(() => Math.random() - 0.5)
-  return [shuffled[0], shuffled[1]]
-}
-
 export default function SetupScreen() {
-  const [name1, setName1] = useState('')
-  const [name2, setName2] = useState('')
   const [loading, setLoading] = useState(false)
+  const insets = useSafeAreaInsets()
   const startSession = useSessionStore((s) => s.startSession)
+  const { player1Color, player2Color } = useSettingsStore()
 
-  // Assign colors once on mount
-  const [color1, color2] = useMemo(() => pickTwoColors(), [])
+  const p1X = useSharedValue(-240)
+  const p2X = useSharedValue(240)
+  const p1Style = useAnimatedStyle(() => ({ transform: [{ translateX: p1X.value }] }))
+  const p2Style = useAnimatedStyle(() => ({ transform: [{ translateX: p2X.value }] }))
 
-  const bothFilled = name1.trim().length > 0 && name2.trim().length > 0
+  useEffect(() => {
+    p1X.value = withSpring(0, { damping: 18, stiffness: 160 })
+    p2X.value = withSpring(0, { damping: 18, stiffness: 160 })
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleStart = async () => {
-    const n1 = name1.trim()
-    const n2 = name2.trim()
-    if (!n1 || !n2) return
     setLoading(true)
     try {
-      const p1 = await createOrGetPlayer(n1, color1)
-      const p2 = await createOrGetPlayer(n2, color2)
+      const p1 = await createOrGetPlayer('Player 1', player1Color)
+      const p2 = await createOrGetPlayer('Player 2', player2Color)
       const session = await createSession(p1.id, p2.id)
       startSession(
-        { id: p1.id, name: p1.name, color: color1 },
-        { id: p2.id, name: p2.name, color: color2 },
-        session.id
+        { id: p1.id, name: 'Player 1', color: player1Color },
+        { id: p2.id, name: 'Player 2', color: player2Color },
+        session.id,
       )
       router.push('/game/mental-math')
-    } catch (e) {
+    } catch {
       Alert.alert('Error', 'Could not start game. Please try again.')
       setLoading(false)
     }
   }
 
   return (
-    <ScrollView
-      style={{ flex: 1, backgroundColor: colors.bg }}
-      contentContainerStyle={styles.container}
-      keyboardShouldPersistTaps="handled"
-    >
-      {/* Back button */}
+    <View style={[styles.container, { paddingTop: insets.top + 20 }]}>
       <TouchableOpacity onPress={() => router.back()} style={styles.back}>
         <Text style={styles.backText}>← Back</Text>
       </TouchableOpacity>
 
-      <Text style={styles.title}>Who's Playing?</Text>
+      <Text style={styles.title}>FULL BATTLE</Text>
+      <Text style={styles.subtitle}>7 games · Brain age · Winner</Text>
 
-      {/* Player 1 Card */}
-      <View style={[styles.card, { borderColor: color1 }]}>
-        <View style={styles.cardHeader}>
-          <Text style={styles.playerLabel}>Player 1</Text>
-          <View style={[styles.colorPill, { backgroundColor: color1 }]} />
-        </View>
-        <TextInput
-          value={name1}
-          onChangeText={(t) => setName1(t.slice(0, 12))}
-          placeholder="Enter name…"
-          placeholderTextColor={colors.muted}
-          style={[styles.input, { borderColor: color1, color: color1 }]}
-          maxLength={12}
-          autoCorrect={false}
-        />
-      </View>
+      <View style={styles.cardsRow}>
+        <Animated.View style={[styles.card, { borderColor: player1Color }, p1Style]}>
+          <Text style={[styles.dot, { color: player1Color }]}>●</Text>
+          <Text style={styles.playerLabel}>PLAYER 1</Text>
+          <Text style={[styles.playerName, { color: player1Color }]}>Player 1</Text>
+        </Animated.View>
 
-      {/* Player 2 Card */}
-      <View style={[styles.card, { borderColor: color2 }]}>
-        <View style={styles.cardHeader}>
-          <Text style={styles.playerLabel}>Player 2</Text>
-          <View style={[styles.colorPill, { backgroundColor: color2 }]} />
-        </View>
-        <TextInput
-          value={name2}
-          onChangeText={(t) => setName2(t.slice(0, 12))}
-          placeholder="Enter name…"
-          placeholderTextColor={colors.muted}
-          style={[styles.input, { borderColor: color2, color: color2 }]}
-          maxLength={12}
-          autoCorrect={false}
-        />
+        <Text style={styles.vs}>VS</Text>
+
+        <Animated.View style={[styles.card, { borderColor: player2Color }, p2Style]}>
+          <Text style={[styles.dot, { color: player2Color }]}>●</Text>
+          <Text style={styles.playerLabel}>PLAYER 2</Text>
+          <Text style={[styles.playerName, { color: player2Color }]}>Player 2</Text>
+        </Animated.View>
       </View>
 
       <Button
-        label={loading ? 'Starting…' : 'Start Battle!'}
+        label={loading ? 'Starting…' : 'START BATTLE'}
         onPress={handleStart}
-        disabled={!bothFilled || loading}
+        disabled={loading}
         color={colors.accent}
         size="lg"
         fullWidth
       />
-    </ScrollView>
+    </View>
   )
 }
 
 const styles = StyleSheet.create({
   container: {
-    padding: 24,
+    flex: 1,
+    backgroundColor: colors.bg,
+    paddingHorizontal: 24,
+    paddingBottom: 36,
     gap: 20,
-    paddingTop: 60,
   },
-  back: {
-    alignSelf: 'flex-start',
-    marginBottom: 8,
-  },
-  backText: {
-    color: colors.muted,
-    fontSize: 15,
-    fontWeight: '600',
-  },
+  back: { alignSelf: 'flex-start' },
+  backText: { color: colors.muted, fontSize: 15, fontWeight: '600' },
   title: {
-    fontSize: 32,
+    fontSize: 36,
     fontWeight: '900',
     color: colors.text,
     letterSpacing: -1,
-    marginBottom: 8,
+    textAlign: 'center',
   },
-  card: {
-    backgroundColor: colors.surface,
-    borderWidth: 2,
-    borderRadius: 14,
-    padding: 16,
-    gap: 12,
+  subtitle: {
+    fontSize: 13,
+    color: colors.muted,
+    fontWeight: '500',
+    textAlign: 'center',
+    marginTop: -10,
   },
-  cardHeader: {
+  cardsRow: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    gap: 12,
   },
+  card: {
+    flex: 1,
+    backgroundColor: colors.surface,
+    borderWidth: 2,
+    borderRadius: 16,
+    paddingVertical: 32,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+    gap: 10,
+  },
+  dot: { fontSize: 32 },
   playerLabel: {
-    fontSize: 12,
+    fontSize: 10,
     fontWeight: '700',
     color: colors.muted,
-    letterSpacing: 1.5,
+    letterSpacing: 2,
     textTransform: 'uppercase',
   },
-  colorPill: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-  },
-  input: {
-    borderWidth: 1.5,
-    borderRadius: 8,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
+  playerName: {
     fontSize: 18,
-    fontWeight: '700',
-    backgroundColor: colors.bg,
+    fontWeight: '900',
+    letterSpacing: -0.5,
+  },
+  vs: {
+    fontSize: 18,
+    fontWeight: '900',
+    color: colors.muted,
+    letterSpacing: 2,
   },
 })

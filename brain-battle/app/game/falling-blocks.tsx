@@ -1,52 +1,78 @@
-import { useState } from 'react'
-import { View, Text } from 'react-native'
-import { router } from 'expo-router'
+import { useState, useRef, useCallback } from 'react'
+import { View, BackHandler } from 'react-native'
+import { router, useFocusEffect } from 'expo-router'
 import { useSessionStore } from '../../store/sessionStore'
 import { saveGameScore } from '../../db/queries'
 import { GAMES } from '../../constants/games'
 import { colors } from '../../constants/colors'
 import CountdownOverlay from '../../components/ui/CountdownOverlay'
-import Button from '../../components/ui/Button'
+import FallingBlocks from '../../components/games/FallingBlocks'
+import { useToast } from '../../hooks/useToast'
+import { useQuitGame } from '../../hooks/useQuitGame'
+import QuitButton from '../../components/ui/QuitButton'
+import QuitConfirmDialog from '../../components/ui/QuitConfirmDialog'
 
 export default function FallingBlocksScreen() {
   const [countdownDone, setCountdownDone] = useState(false)
+  const [showQuit, setShowQuit] = useState(false)
+  const hasNavigated = useRef(false)
   const { currentPlayer, currentGameIndex, player1, player2, submitScore, sessionId } =
     useSessionStore()
+  const { showToast } = useToast()
+  const { handleConfirmQuit } = useQuitGame('battle')
 
   const currentPlayerData = currentPlayer === 1 ? player1 : player2
   const gameInfo = GAMES[currentGameIndex]
 
-  const onGameComplete = async (score: number, timeMs: number, accuracy: number) => {
+  useFocusEffect(
+    useCallback(() => {
+      const sub = BackHandler.addEventListener('hardwareBackPress', () => true)
+      return () => sub.remove()
+    }, []),
+  )
+
+  const onGameComplete = async (score: number, timeMs: number, accuracy: number): Promise<void> => {
+    if (hasNavigated.current) return
+    hasNavigated.current = true
+
     const playerId = currentPlayer === 1 ? player1!.id : player2!.id
-    await saveGameScore(sessionId!, playerId, gameInfo.id, score, Math.round(timeMs), accuracy)
+    try {
+      await saveGameScore(sessionId!, playerId, gameInfo.id, score, Math.round(timeMs), accuracy)
+    } catch {
+      showToast("Couldn't save score. Please try again.")
+    }
     submitScore(currentPlayer, currentGameIndex, { score, timeMs, accuracy })
     if (currentPlayer === 1) {
-      router.push('/handoff')
+      router.replace('/handoff')
     } else {
       if (currentGameIndex >= 6) {
-        router.push('/results')
+        router.replace('/results')
       } else {
-        router.push('/handoff')
+        router.replace('/handoff')
       }
     }
   }
 
-  if (!countdownDone) {
-    return (
-      <CountdownOverlay
-        gameName={gameInfo.label}
-        gameIcon={gameInfo.icon}
-        playerName={currentPlayerData?.name ?? ''}
-        playerColor={currentPlayerData?.color ?? colors.accent}
-        onComplete={() => setCountdownDone(true)}
-      />
-    )
-  }
-
   return (
-    <View style={{ flex: 1, backgroundColor: colors.bg, alignItems: 'center', justifyContent: 'center', gap: 20 }}>
-      <Text style={{ color: colors.text, fontSize: 24, fontWeight: '700' }}>{gameInfo.label}</Text>
-      <Button label="Finish Game (dev)" onPress={() => onGameComplete(75, 5000, 0.8)} color={colors.accent} />
+    <View style={{ flex: 1 }}>
+      {!countdownDone ? (
+        <CountdownOverlay
+          gameName={gameInfo.label}
+          gameIcon={gameInfo.icon}
+          playerName={currentPlayerData?.name ?? ''}
+          playerColor={currentPlayerData?.color ?? colors.accent}
+          onComplete={() => setCountdownDone(true)}
+        />
+      ) : (
+        <FallingBlocks onGameComplete={onGameComplete} />
+      )}
+      <QuitButton onPress={() => setShowQuit(true)} />
+      <QuitConfirmDialog
+        visible={showQuit}
+        mode="battle"
+        onConfirm={handleConfirmQuit}
+        onCancel={() => setShowQuit(false)}
+      />
     </View>
   )
 }
