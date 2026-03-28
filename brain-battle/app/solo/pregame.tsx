@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useMemo } from 'react'
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native'
 import { router } from 'expo-router'
 import Animated, {
@@ -9,24 +9,10 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated'
 import { useSoloStore } from '../../store/soloStore'
-import { GAMES } from '../../constants/games'
+import { useShopStore } from '../../store/shopStore'
+import { GAMES, GAME_ICONS } from '../../constants/games'
 import { colors } from '../../constants/colors'
 import Button from '../../components/ui/Button'
-
-const GAME_COLOR: Record<string, string> = {
-  'mental-math':     colors.accent,
-  'grid-memory':     colors.accent2,
-  'stroop-test':     colors.accent3,
-  'number-sequence': colors.amber,
-  'falling-blocks':  '#c084fc',
-  'exploding-cube':  '#f97316',
-  'flag-direction':  '#34d399',
-}
-
-const GAME_DIFFICULTY: Record<string, number> = {
-  'mental-math': 2, 'grid-memory': 2, 'stroop-test': 1,
-  'number-sequence': 3, 'falling-blocks': 3, 'exploding-cube': 3, 'flag-direction': 2,
-}
 
 function GameRow({ game, index }: { game: typeof GAMES[number]; index: number }) {
   const translateX = useSharedValue(60)
@@ -43,17 +29,18 @@ function GameRow({ game, index }: { game: typeof GAMES[number]; index: number })
     opacity: opacity.value,
   }))
 
-  const gc = GAME_COLOR[game.id] ?? colors.accent
-  const diff = GAME_DIFFICULTY[game.id] ?? 1
+  const IconComponent = GAME_ICONS[game.id]
 
   return (
-    <Animated.View style={[styles.gameRow, { borderLeftColor: gc }, style]}>
+    <Animated.View style={[styles.gameRow, { borderLeftColor: game.color }, style]}>
       <Text style={styles.gameNum}>{String(index + 1).padStart(2, '0')}</Text>
-      <Text style={[styles.gameIcon, { color: gc }]}>{game.icon}</Text>
+      <View style={[styles.iconBox, { backgroundColor: `${game.color}15` }]}>
+        <IconComponent size={36} color={game.color} />
+      </View>
       <Text style={styles.gameName}>{game.label}</Text>
       <View style={styles.dots}>
         {[0, 1, 2].map((i) => (
-          <View key={i} style={[styles.dot, { backgroundColor: i < diff ? gc : colors.border }]} />
+          <View key={i} style={[styles.dot, { backgroundColor: i < game.difficulty ? game.color : colors.border }]} />
         ))}
       </View>
     </Animated.View>
@@ -62,6 +49,12 @@ function GameRow({ game, index }: { game: typeof GAMES[number]; index: number })
 
 export default function SoloPregame() {
   const { player, personalBest, startSession } = useSoloStore()
+  const { owns } = useShopStore()
+
+  const availableGames = useMemo(
+    () => GAMES.filter((g) => !g.locked || owns(g.id)) as unknown as typeof GAMES[number][],
+    [owns],
+  )
 
   if (!player) {
     router.replace('/solo/setup')
@@ -69,7 +62,7 @@ export default function SoloPregame() {
   }
 
   const handleStart = () => {
-    startSession()
+    startSession(availableGames)
     router.replace('/solo/countdown')
   }
 
@@ -82,11 +75,11 @@ export default function SoloPregame() {
         <Text style={[styles.title, { color: player?.color ?? colors.accent3 }]}>
           GET READY, {(player?.name ?? 'PLAYER').toUpperCase()}
         </Text>
-        <Text style={styles.sub}>7 games · Your best time</Text>
+        <Text style={styles.sub}>{availableGames.length} games · Your best time</Text>
       </View>
 
       <ScrollView contentContainerStyle={styles.list}>
-        {GAMES.map((g, i) => (
+        {availableGames.map((g, i) => (
           <GameRow key={g.id} game={g} index={i} />
         ))}
       </ScrollView>
@@ -137,10 +130,16 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
     borderLeftWidth: 3,
-    padding: 14,
+    padding: 10,
   },
   gameNum: { fontSize: 11, fontWeight: '800', color: colors.muted, letterSpacing: 1, width: 24 },
-  gameIcon: { fontSize: 22, fontWeight: '900', width: 28, textAlign: 'center' },
+  iconBox: {
+    width: 44,
+    height: 44,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   gameName: { flex: 1, fontSize: 15, fontWeight: '700', color: colors.text },
   dots: { flexDirection: 'row', gap: 4 },
   dot: { width: 7, height: 7, borderRadius: 3.5 },

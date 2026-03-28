@@ -8,6 +8,7 @@ import { preloadSounds, setAudioActive } from '../utils/sounds'
 import { useProfileStore } from '../store/profileStore'
 import { useCoinStore } from '../store/coinStore'
 import { useStreakStore } from '../store/streakStore'
+import { useShopStore } from '../store/shopStore'
 import { getLastActiveStreak } from '../db/queries'
 
 SplashScreen.preventAutoHideAsync()
@@ -16,6 +17,7 @@ export default function RootLayout() {
   const [appReady, setAppReady] = useState(false)
   const loadProfile = useProfileStore((s) => s.loadProfile)
   const loadCoins = useCoinStore((s) => s.load)
+  const loadOwned = useShopStore((s) => s.loadOwned)
   const setLastActiveStreak = useStreakStore((s) => s.setLastActiveStreak)
 
   useEffect(() => {
@@ -28,6 +30,7 @@ export default function RootLayout() {
         const profile = useProfileStore.getState()
         if (!profile.isFirstTime && profile.username) {
           await loadCoins(profile.username)
+          await loadOwned(profile.username)
           const streak = await getLastActiveStreak()
           if (streak) setLastActiveStreak(streak)
         }

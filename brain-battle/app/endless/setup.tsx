@@ -3,25 +3,17 @@ import { View, Text, Pressable, StyleSheet, ScrollView } from 'react-native'
 import { router } from 'expo-router'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { colors } from '../../constants/colors'
-import { GAMES } from '../../constants/games'
+import { GAMES, GAME_ICONS } from '../../constants/games'
 import { useEndlessStore } from '../../store/endlessStore'
 import { useProfileStore } from '../../store/profileStore'
 import { useCoinStore } from '../../store/coinStore'
+import { useShopStore } from '../../store/shopStore'
 import Button from '../../components/ui/Button'
-
-const GAME_COLORS: Record<string, string> = {
-  'mental-math':     colors.accent,
-  'grid-memory':     colors.accent2,
-  'stroop-test':     colors.accent3,
-  'number-sequence': colors.amber,
-  'falling-blocks':  '#c084fc',
-  'exploding-cube':  '#f97316',
-  'flag-direction':  '#34d399',
-}
 
 export default function EndlessSetup() {
   const { username, color, isProfileLoaded } = useProfileStore()
   const coinBalance = useCoinStore((s) => s.balance)
+  const { owns } = useShopStore()
   const [selectedGameId, setSelectedGameId] = useState<string | null>(null)
   const setup = useEndlessStore((s) => s.setup)
 
@@ -64,22 +56,29 @@ export default function EndlessSetup() {
           <Text style={styles.sectionLabel}>PICK A GAME</Text>
           <View style={styles.gameGrid}>
             {GAMES.map((game) => {
-              const gc = GAME_COLORS[game.id] ?? colors.accent
               const selected = selectedGameId === game.id
+              const isLocked = game.locked && !owns(game.id)
+              const IconComponent = GAME_ICONS[game.id]
               return (
                 <Pressable
                   key={game.id}
-                  onPress={() => setSelectedGameId(game.id)}
+                  onPress={() => {
+                    if (isLocked) { router.push('/shop'); return }
+                    setSelectedGameId(game.id)
+                  }}
                   style={[
                     styles.gameCard,
-                    { borderColor: selected ? gc : colors.border },
-                    selected && { backgroundColor: gc + '18' },
+                    { borderColor: selected ? game.color : colors.border },
+                    selected && { backgroundColor: `${game.color}18` },
                   ]}
                 >
-                  <Text style={[styles.gameIcon, { color: gc }]}>{game.icon}</Text>
-                  <Text style={[styles.gameLabel, { color: selected ? gc : colors.text }]}>
+                  <View style={[styles.iconBox, { backgroundColor: isLocked ? `${colors.border}18` : `${game.color}12` }]}>
+                    <IconComponent size={40} color={isLocked ? colors.muted : game.color} />
+                  </View>
+                  <Text style={[styles.gameLabel, { color: isLocked ? colors.muted : selected ? game.color : colors.text }]}>
                     {game.label}
                   </Text>
+                  {isLocked && <Text style={styles.lockBadge}>🔒</Text>}
                 </Pressable>
               )
             })}
@@ -119,23 +118,9 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     borderWidth: 2,
   },
-  colorDot: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-  },
-  profileName: {
-    fontSize: 18,
-    fontWeight: '900',
-    letterSpacing: -0.5,
-  },
-  profileLabel: {
-    fontSize: 10,
-    color: colors.muted,
-    fontWeight: '700',
-    letterSpacing: 2,
-    marginTop: 2,
-  },
+  colorDot: { width: 40, height: 40, borderRadius: 20 },
+  profileName: { fontSize: 18, fontWeight: '900', letterSpacing: -0.5 },
+  profileLabel: { fontSize: 10, color: colors.muted, fontWeight: '700', letterSpacing: 2, marginTop: 2 },
   coinBadge: {
     backgroundColor: colors.gold + '22',
     borderRadius: 10,
@@ -154,10 +139,17 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 14,
     alignItems: 'center',
-    gap: 6,
+    gap: 8,
     backgroundColor: colors.surface,
   },
-  gameIcon: { fontSize: 28, fontWeight: '900' },
+  iconBox: {
+    width: 56,
+    height: 56,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   gameLabel: { fontSize: 12, fontWeight: '700', letterSpacing: 0.5, textAlign: 'center' },
   startWrap: { marginTop: 8 },
+  lockBadge: { fontSize: 11, position: 'absolute', top: 6, right: 6 },
 })

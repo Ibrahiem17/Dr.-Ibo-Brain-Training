@@ -19,6 +19,8 @@ import NumberSequence from '../../../components/games/NumberSequence'
 import FallingBlocks from '../../../components/games/FallingBlocks'
 import ExplodingCube from '../../../components/games/ExplodingCube'
 import FlagDirection from '../../../components/games/FlagDirection'
+import ReactionTap from '../../../components/games/ReactionTap'
+import SymbolCipher from '../../../components/games/SymbolCipher'
 import QuitButton from '../../../components/ui/QuitButton'
 import QuitConfirmDialog from '../../../components/ui/QuitConfirmDialog'
 import { useQuitGame } from '../../../hooks/useQuitGame'
@@ -146,6 +148,8 @@ const GAME_MAP: Record<string, React.ComponentType<GameProps>> = {
   'falling-blocks':  FallingBlocks,
   'exploding-cube':  ExplodingCube,
   'flag-direction':  FlagDirection,
+  'reaction-tap':    ReactionTap,
+  'symbol-cipher':   SymbolCipher,
 }
 
 const styles = StyleSheet.create({

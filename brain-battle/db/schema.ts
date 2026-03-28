@@ -115,3 +115,12 @@ export const endless_sessions = sqliteTable('endless_sessions', {
 export type Coin = InferSelectModel<typeof coins>
 export type EndlessHighScore = InferSelectModel<typeof endless_high_scores>
 export type EndlessSession = InferSelectModel<typeof endless_sessions>
+
+export const shopPurchases = sqliteTable('shop_purchases', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  player_name: text('player_name').notNull(),
+  item_id: text('item_id').notNull(),
+  purchased_at: text('purchased_at').notNull(),
+})
+
+export type ShopPurchase = InferSelectModel<typeof shopPurchases>

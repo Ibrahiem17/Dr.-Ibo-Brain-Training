@@ -11,6 +11,8 @@ import NumberSequence from '../../../components/games/NumberSequence'
 import FallingBlocks from '../../../components/games/FallingBlocks'
 import ExplodingCube from '../../../components/games/ExplodingCube'
 import FlagDirection from '../../../components/games/FlagDirection'
+import ReactionTap from '../../../components/games/ReactionTap'
+import SymbolCipher from '../../../components/games/SymbolCipher'
 import { useQuitGame } from '../../../hooks/useQuitGame'
 import QuitButton from '../../../components/ui/QuitButton'
 import QuitConfirmDialog from '../../../components/ui/QuitConfirmDialog'
@@ -25,6 +27,8 @@ const gameComponents: Record<string, React.ComponentType<{ onGameComplete: OnCom
   'falling-blocks':  FallingBlocks,
   'exploding-cube':  ExplodingCube,
   'flag-direction':  FlagDirection,
+  'reaction-tap':    ReactionTap,
+  'symbol-cipher':   SymbolCipher,
 }
 
 export default function QuickPlayGame() {

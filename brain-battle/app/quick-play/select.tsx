@@ -5,7 +5,6 @@ import {
   StyleSheet,
   FlatList,
   Pressable,
-  Dimensions,
   TouchableOpacity,
 } from 'react-native'
 import { router } from 'expo-router'
@@ -17,35 +16,22 @@ import Animated, {
 } from 'react-native-reanimated'
 import * as Haptics from 'expo-haptics'
 import { colors } from '../../constants/colors'
-import { GAMES } from '../../constants/games'
+import { GAMES, GAME_ICONS } from '../../constants/games'
 import { useQuickPlayStore } from '../../store/quickPlayStore'
+import { useShopStore } from '../../store/shopStore'
 
-const { width: W } = Dimensions.get('window')
-const PADDING = 16
-const GAP = 12
-const CARD_WIDTH = (W - PADDING * 2 - GAP) / 2
-
-const GAME_META: Record<string, { color: string; description: string; difficulty: number }> = {
-  'mental-math':     { color: colors.accent,  description: 'Solve fast',          difficulty: 2 },
-  'grid-memory':     { color: colors.accent2, description: 'Count the lit balls',  difficulty: 2 },
-  'stroop-test':     { color: colors.accent3, description: 'Name the ink colour',  difficulty: 1 },
-  'number-sequence': { color: colors.amber,   description: 'Repeat the digits',    difficulty: 3 },
-  'falling-blocks':  { color: '#c084fc',      description: 'Watch & count',        difficulty: 3 },
-  'exploding-cube':  { color: '#f97316',      description: 'Find the pieces',      difficulty: 3 },
-  'flag-direction':  { color: '#34d399',      description: 'Copy the sequence',    difficulty: 2 },
-}
+type Game = typeof GAMES[number]
 
 interface GameCardProps {
-  gameId: string
-  label: string
-  icon: string
+  game: Game
   selected: boolean
+  locked: boolean
   onPress: () => void
 }
 
-function GameCard({ gameId, label, icon, selected, onPress }: GameCardProps) {
-  const meta = GAME_META[gameId] ?? { color: colors.accent, description: '', difficulty: 1 }
+function GameCard({ game, selected, locked, onPress }: GameCardProps) {
   const scale = useSharedValue(1)
+  const IconComponent = GAME_ICONS[game.id]
 
   const animStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }))
 
@@ -58,33 +44,59 @@ function GameCard({ gameId, label, icon, selected, onPress }: GameCardProps) {
   }
 
   return (
-    <Animated.View style={animStyle}>
+    <Animated.View style={[animStyle, styles.cardWrapper]}>
       <Pressable
         onPress={handlePress}
         style={[
           styles.card,
-          { borderLeftColor: meta.color, borderLeftWidth: 3 },
-          selected && {
-            borderColor: meta.color,
+          { borderLeftColor: locked ? colors.border : game.color },
+          selected && !locked && {
+            borderColor: game.color,
             borderWidth: 2,
-            backgroundColor: meta.color + '14',
+            shadowColor: game.color,
+            shadowOffset: { width: 0, height: 0 },
+            shadowOpacity: 0.5,
+            shadowRadius: 10,
+            elevation: 8,
           },
         ]}
       >
-        <Text style={[styles.cardIcon, { color: meta.color }]}>{icon}</Text>
-        <Text style={styles.cardLabel}>{label}</Text>
-        <Text style={styles.cardDesc}>{meta.description}</Text>
+        {/* Icon area */}
+        <View style={[styles.iconArea, { backgroundColor: locked ? `${colors.border}18` : `${game.color}10` }]}>
+          <IconComponent size={72} color={locked ? colors.muted : game.color} />
+        </View>
 
-        <View style={styles.difficultyRow}>
-          {[0, 1, 2].map((i) => (
-            <View
-              key={i}
-              style={[
-                styles.dot,
-                { backgroundColor: i < meta.difficulty ? meta.color : colors.border },
-              ]}
-            />
-          ))}
+        {/* Accent line */}
+        <View style={[styles.accentLine, { backgroundColor: locked ? colors.border : game.color }]} />
+
+        {/* Info area */}
+        <View style={styles.infoArea}>
+          <View style={styles.nameRow}>
+            <Text
+              style={[styles.gameName, { color: locked ? colors.muted : selected ? game.color : colors.text }]}
+              numberOfLines={1}
+            >
+              {game.label.toUpperCase()}
+            </Text>
+            {locked ? (
+              <Text style={styles.lockIcon}>🔒</Text>
+            ) : (
+              <View style={styles.dots}>
+                {[0, 1, 2].map((i) => (
+                  <View
+                    key={i}
+                    style={[
+                      styles.dot,
+                      { backgroundColor: i < game.difficulty ? game.color : colors.border },
+                    ]}
+                  />
+                ))}
+              </View>
+            )}
+          </View>
+          <Text style={styles.desc} numberOfLines={1}>
+            {locked ? `🪙 ${game.price} · Unlock in Shop` : game.description}
+          </Text>
         </View>
       </Pressable>
     </Animated.View>
@@ -93,6 +105,7 @@ function GameCard({ gameId, label, icon, selected, onPress }: GameCardProps) {
 
 export default function QuickPlaySelect() {
   const { player1, isSolo, selectGame: storeSelectGame } = useQuickPlayStore()
+  const { owns } = useShopStore()
   const [selectedId, setSelectedId] = useState<string | null>(null)
 
   const playBtnTranslate = useSharedValue(80)
@@ -103,9 +116,13 @@ export default function QuickPlaySelect() {
     opacity: playBtnOpacity.value,
   }))
 
-  const handleSelect = (gameId: string) => {
-    if (selectedId !== gameId) {
-      setSelectedId(gameId)
+  const handleSelect = (game: Game) => {
+    if (game.locked && !owns(game.id)) {
+      router.push('/shop')
+      return
+    }
+    if (selectedId !== game.id) {
+      setSelectedId(game.id)
       playBtnTranslate.value = withSpring(0, { damping: 18, stiffness: 200 })
       playBtnOpacity.value = withTiming(1, { duration: 250 })
     }
@@ -118,16 +135,13 @@ export default function QuickPlaySelect() {
   }
 
   const selectedGame = GAMES.find((g) => g.id === selectedId)
-  const selectedMeta = selectedId ? GAME_META[selectedId] : null
 
   const headerSubtitle = isSolo
     ? 'Choose a game'
     : `${player1?.name ?? 'Player 1'}'s turn to choose`
 
-  const data = [...GAMES] as { id: string; label: string; icon: string }[]
-  // Pad to even number so grid looks balanced
-  const paddedData: (typeof data[0] | null)[] =
-    data.length % 2 === 0 ? data : [...data, null]
+  const data = [...GAMES] as Game[]
+  const paddedData: (Game | null)[] = data.length % 2 === 0 ? data : [...data, null]
 
   return (
     <View style={styles.container}>
@@ -149,16 +163,13 @@ export default function QuickPlaySelect() {
         columnWrapperStyle={styles.row}
         contentContainerStyle={styles.grid}
         renderItem={({ item }) => {
-          if (!item) {
-            return <View style={{ width: CARD_WIDTH }} />
-          }
+          if (!item) return <View style={styles.cardWrapper} />
           return (
             <GameCard
-              gameId={item.id}
-              label={item.label}
-              icon={item.icon}
+              game={item}
               selected={selectedId === item.id}
-              onPress={() => handleSelect(item.id)}
+              locked={item.locked && !owns(item.id)}
+              onPress={() => handleSelect(item)}
             />
           )
         }}
@@ -170,16 +181,16 @@ export default function QuickPlaySelect() {
           onPress={handlePlay}
           style={[
             styles.playButton,
-            selectedMeta && {
-              borderColor: selectedMeta.color,
-              backgroundColor: selectedMeta.color + '33',
+            selectedGame && {
+              borderColor: selectedGame.color,
+              backgroundColor: selectedGame.color + '33',
             },
           ]}
         >
           <Text
             style={[
               styles.playLabel,
-              selectedMeta && { color: selectedMeta.color },
+              selectedGame && { color: selectedGame.color },
             ]}
           >
             PLAY {selectedGame?.label.toUpperCase() ?? ''}
@@ -213,42 +224,61 @@ const styles = StyleSheet.create({
   },
   headerSub: { fontSize: 13, color: colors.muted, fontWeight: '500' },
   grid: {
-    padding: PADDING,
-    gap: GAP,
+    padding: 16,
+    gap: 10,
     paddingBottom: 120,
   },
-  row: { gap: GAP },
+  row: { gap: 10 },
+  cardWrapper: { flex: 1 },
   card: {
-    width: CARD_WIDTH,
-    height: 160,
+    flex: 1,
     backgroundColor: colors.surface,
-    borderRadius: 12,
+    borderRadius: 10,
     borderWidth: 1,
     borderColor: colors.border,
-    padding: 14,
-    justifyContent: 'center',
+    borderLeftWidth: 3,
+    overflow: 'hidden',
+  },
+  iconArea: {
+    height: 100,
     alignItems: 'center',
-    gap: 4,
+    justifyContent: 'center',
+    padding: 12,
   },
-  cardIcon: { fontSize: 48, fontWeight: '900', lineHeight: 56 },
-  cardLabel: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: colors.text,
-    textAlign: 'center',
+  accentLine: {
+    height: 1.5,
+    opacity: 0.6,
   },
-  cardDesc: {
+  infoArea: {
+    padding: 10,
+  },
+  nameRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  gameName: {
+    fontSize: 9,
+    fontWeight: '900',
+    letterSpacing: 1.5,
+    flex: 1,
+  },
+  lockIcon: { fontSize: 12 },
+  dots: {
+    flexDirection: 'row',
+    gap: 3,
+  },
+  dot: {
+    width: 6,
+    height: 6,
+    borderRadius: 1,
+  },
+  desc: {
     fontSize: 11,
     color: colors.muted,
-    textAlign: 'center',
+    marginTop: 3,
     fontWeight: '500',
   },
-  difficultyRow: {
-    flexDirection: 'row',
-    gap: 4,
-    marginTop: 6,
-  },
-  dot: { width: 8, height: 8, borderRadius: 4 },
   playBar: {
     position: 'absolute',
     bottom: 0,

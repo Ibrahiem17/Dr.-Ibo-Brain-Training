@@ -11,8 +11,8 @@ export type GridMemoryFeedback = 'correct' | 'wrong' | null
 export type GridMemoryPhase = 'showing' | 'recall'
 
 const BALL_COLORS = ['#ff2d6b', '#00e5ff', '#aaff00', '#ff9f00', '#c084fc']
-const LIT_COUNTS = [2, 3, 4, 5, 6, 7]
-const BASE_TOTAL_ROUNDS = 6
+const LIT_COUNTS = [3, 4, 5, 6]
+const BASE_TOTAL_ROUNDS = 4
 const SHOW_DURATION = 1800
 
 function getEndlessLitCount(endlessRound: number): number {

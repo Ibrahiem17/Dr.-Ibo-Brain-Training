@@ -5,7 +5,7 @@ import { normaliseScore } from '../../../utils/scoring'
 type Operator = '+' | '-' | 'x'
 export type MentalMathFeedback = 'correct' | 'wrong' | null
 
-const BASE_TOTAL_ROUNDS = 8
+const BASE_TOTAL_ROUNDS = 5
 const BASE_ROUND_DURATION = 6 // seconds
 
 function makeQuestion(): { text: string; answer: number } {

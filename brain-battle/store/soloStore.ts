@@ -15,8 +15,11 @@ export interface SoloGameResult {
   accuracy: number
 }
 
+type GameEntry = typeof GAMES[number]
+
 interface SoloStore {
   player: SoloPlayer | null
+  gameList: GameEntry[]
   currentGameIndex: number
   results: SoloGameResult[]
   phase: 'idle' | 'pregame' | 'countdown' | 'playing' | 'between' | 'results'
@@ -25,7 +28,7 @@ interface SoloStore {
 
   setPlayer: (player: SoloPlayer) => void
   setPersonalBest: (age: number | null) => void
-  startSession: () => void
+  startSession: (gameList: GameEntry[]) => void
   submitGameResult: (result: SoloGameResult) => void
   goToNextGame: () => void
   startNextGame: () => void
@@ -33,13 +36,16 @@ interface SoloStore {
   reset: () => void
   resetForReplay: () => void
 
-  getCurrentGame: () => typeof GAMES[number] | null
+  getCurrentGame: () => GameEntry | null
   getFinalScores: () => number[]
   getBrainAge: () => number
 }
 
+const BASE_GAMES = GAMES.filter((g) => !g.locked) as unknown as GameEntry[]
+
 export const useSoloStore = create<SoloStore>((set, get) => ({
   player: null,
+  gameList: [...BASE_GAMES],
   currentGameIndex: 0,
   results: [],
   phase: 'idle',
@@ -50,8 +56,9 @@ export const useSoloStore = create<SoloStore>((set, get) => ({
 
   setPersonalBest: (age) => set({ personalBest: age }),
 
-  startSession: () =>
+  startSession: (gameList) =>
     set({
+      gameList,
       currentGameIndex: 0,
       results: [],
       finalBrainAge: null,
@@ -79,6 +86,7 @@ export const useSoloStore = create<SoloStore>((set, get) => ({
   reset: () =>
     set({
       player: null,
+      gameList: [...BASE_GAMES],
       currentGameIndex: 0,
       results: [],
       phase: 'idle',
@@ -87,22 +95,22 @@ export const useSoloStore = create<SoloStore>((set, get) => ({
     }),
 
   resetForReplay: () =>
-    set((state) => ({
+    set({
       currentGameIndex: 0,
       results: [],
       finalBrainAge: null,
       phase: 'pregame',
-      // keep player and personalBest
-    })),
+      // keep player, personalBest, gameList
+    }),
 
   getCurrentGame: () => {
-    const { currentGameIndex } = get()
-    return GAMES[currentGameIndex] ?? null
+    const { currentGameIndex, gameList } = get()
+    return gameList[currentGameIndex] ?? null
   },
 
   getFinalScores: () => {
-    const { results } = get()
-    return GAMES.map((game) => {
+    const { results, gameList } = get()
+    return gameList.map((game) => {
       const result = results.find((r) => r.gameId === game.id)
       return result?.score ?? 0
     })

@@ -123,4 +123,13 @@ export async function initDB(): Promise<void> {
       played_at TEXT NOT NULL
     );
   `)
+
+  sqliteDb.execSync(`
+    CREATE TABLE IF NOT EXISTS shop_purchases (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      player_name TEXT NOT NULL,
+      item_id TEXT NOT NULL,
+      purchased_at TEXT NOT NULL
+    );
+  `)
 }

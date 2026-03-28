@@ -1,6 +1,6 @@
 import { eq, desc, and } from 'drizzle-orm'
 import { db } from './client'
-import { players, sessions, game_scores, brain_age_log, quick_play_scores, solo_sessions, solo_game_scores, streaks, coins, endless_high_scores, endless_sessions } from './schema'
+import { players, sessions, game_scores, brain_age_log, quick_play_scores, solo_sessions, solo_game_scores, streaks, coins, endless_high_scores, endless_sessions, shopPurchases } from './schema'
 import type { Player, Session } from './schema'
 
 export interface SessionWithPlayers {
@@ -410,6 +410,37 @@ export async function clearHistory(): Promise<void> {
   await db.delete(streaks)
   await db.delete(endless_sessions)
   await db.delete(endless_high_scores)
+  await db.delete(shopPurchases)
+}
+
+// ─── Shop helpers ──────────────────────────────────────────────────────────────
+
+export async function getOwnedItems(playerName: string): Promise<string[]> {
+  const rows = await db
+    .select({ item_id: shopPurchases.item_id })
+    .from(shopPurchases)
+    .where(eq(shopPurchases.player_name, playerName))
+  return rows.map((r) => r.item_id)
+}
+
+export async function ownsItem(playerName: string, itemId: string): Promise<boolean> {
+  const rows = await db
+    .select()
+    .from(shopPurchases)
+    .where(and(eq(shopPurchases.player_name, playerName), eq(shopPurchases.item_id, itemId)))
+    .limit(1)
+  return rows.length > 0
+}
+
+// Returns new coin balance, or null if insufficient funds
+export async function purchaseItem(playerName: string, itemId: string, price: number): Promise<number | null> {
+  const coinRows = await db.select().from(coins).where(eq(coins.player_name, playerName)).limit(1)
+  if (!coinRows.length || coinRows[0].balance < price) return null
+  const newBalance = coinRows[0].balance - price
+  const now = new Date().toISOString()
+  await db.update(coins).set({ balance: newBalance, updated_at: now }).where(eq(coins.player_name, playerName))
+  await db.insert(shopPurchases).values({ player_name: playerName, item_id: itemId, purchased_at: now })
+  return newBalance
 }
 
 export async function resetAllData(): Promise<void> {
